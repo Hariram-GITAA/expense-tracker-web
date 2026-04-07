@@ -494,6 +494,30 @@
             background: #3730a3;
         }
 
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1e293b;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            z-index: 2000;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
         /* Responsive */
         @media (max-width: 700px) {
             main {
@@ -521,6 +545,8 @@
             <div class="header-row">
                 <h1>Expense Tracker</h1>
                 <button class="btn-budget" id="btn-set-budget">Set Budget</button>
+                <button class="btn-budget" id="btn-export-csv">Export CSV</button>
+                <button class="btn-budget" id="btn-share-summary">Share Summary</button>
             </div>
             <div class="balance">
                 <small>Total Spent</small>
@@ -966,6 +992,74 @@
         function formatDate(dateStr) {
             const [y, m, d] = dateStr.split('-');
             return `${m}/${d}/${y}`;
+        }
+
+        // Export CSV
+        document.getElementById('btn-export-csv').addEventListener('click', () => {
+            if (expenses.length === 0) {
+                showToast('No expenses to export.');
+                return;
+            }
+
+            const header = 'Name,Amount,Category,Date';
+            const rows = expenses.map(e => {
+                const name = '"' + e.name.replace(/"/g, '""') + '"';
+                return [name, parseFloat(e.amount).toFixed(2), e.category, e.date].join(',');
+            });
+            const csv = [header, ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'expenses-' + new Date().toISOString().slice(0, 10) + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Share Summary
+        document.getElementById('btn-share-summary').addEventListener('click', () => {
+            const total = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+            if (total === 0) {
+                showToast('No expenses to share.');
+                return;
+            }
+
+            const totals = {};
+            expenses.forEach(e => {
+                totals[e.category] = (totals[e.category] || 0) + parseFloat(e.amount);
+            });
+
+            let text = 'Expense Summary\n';
+            text += '═══════════════\n';
+            text += 'Total Spent: $' + total.toFixed(2) + '\n\n';
+            text += 'By Category:\n';
+            for (const [cat, amt] of Object.entries(totals)) {
+                const pct = ((amt / total) * 100).toFixed(1);
+                text += '  ' + cat + ': $' + amt.toFixed(2) + ' (' + pct + '%)\n';
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Summary copied to clipboard!');
+            });
+        });
+
+        // Toast
+        function showToast(msg) {
+            let toast = document.getElementById('toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast';
+                toast.className = 'toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.classList.remove('show');
+            // Force reflow for re-triggering animation
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
         // Initial render
