@@ -335,6 +335,33 @@
             background: rgba(255,255,255,0.35);
         }
 
+        .btn-budget:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            position: relative;
+        }
+
+        .btn-budget:disabled:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-budget[data-tooltip]:disabled:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 100;
+            pointer-events: none;
+        }
+
         .budget-bar-section {
             grid-column: 1 / -1;
         }
@@ -545,7 +572,7 @@
             <div class="header-row">
                 <h1>Expense Tracker</h1>
                 <button class="btn-budget" id="btn-set-budget">Set Budget</button>
-                <button class="btn-budget" id="btn-export-csv">Export CSV</button>
+                <button class="btn-budget" id="btn-export-csv" data-tooltip="No expenses to export">Export CSV</button>
                 <button class="btn-budget" id="btn-share-summary">Share Summary</button>
             </div>
             <div class="balance">
@@ -903,12 +930,17 @@
             });
         }
 
+        function updateExportButton() {
+            document.getElementById('btn-export-csv').disabled = expenses.length === 0;
+        }
+
         function renderAll() {
             renderTable();
             renderTotal();
             renderBudget();
             renderSummary();
             renderChart();
+            updateExportButton();
         }
 
         // Validation
@@ -996,10 +1028,7 @@
 
         // Export CSV
         document.getElementById('btn-export-csv').addEventListener('click', () => {
-            if (expenses.length === 0) {
-                showToast('No expenses to export.');
-                return;
-            }
+            if (expenses.length === 0) return;
 
             const header = 'Name,Amount,Category,Date';
             const rows = expenses.map(e => {
@@ -1031,8 +1060,14 @@
                 totals[e.category] = (totals[e.category] || 0) + parseFloat(e.amount);
             });
 
+            const dates = expenses.map(e => e.date).sort();
+            const fmtLong = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const earliest = fmtLong(dates[0]);
+            const latest = fmtLong(dates[dates.length - 1]);
+
             let text = 'Expense Summary\n';
             text += '═══════════════\n';
+            text += 'Period: ' + earliest + ' to ' + latest + '\n';
             text += 'Total Spent: $' + total.toFixed(2) + '\n\n';
             text += 'By Category:\n';
             for (const [cat, amt] of Object.entries(totals)) {
